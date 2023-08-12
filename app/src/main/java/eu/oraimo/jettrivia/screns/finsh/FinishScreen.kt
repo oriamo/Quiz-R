@@ -1,6 +1,5 @@
 package eu.oraimo.jettrivia.screns.finsh
 
-import android.content.Context
 import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -16,15 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,16 +34,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ModifierInfo
+import androidx.compose.ui.text.ParagraphStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import eu.oraimo.jettrivia.models.FinishSettings
+import eu.oraimo.jettrivia.navigation.QuizScreens
 import eu.oraimo.jettrivia.screns.viewModels.SharedViewModel
 import eu.oraimo.jettrivia.util.AppColors
 
@@ -56,7 +56,9 @@ fun FinishScreen(navcontroller : NavHostController, sharedViewModel : SharedView
     val correct : FinishSettings = sharedViewModel.FinshSettings
     val correctQuestions : Int = correct.correct
     val totalQuestions : Int = correct.numQuestion
-    val fltCorrectQuestions : Float = (correctQuestions/totalQuestions).toFloat()
+    val flCorrectQuestions = correctQuestions.toFloat()
+    val flTotalQuestions = totalQuestions.toFloat()
+    val fltCorrectQuestions : Float = (flCorrectQuestions/flTotalQuestions)
 
     Surface(modifier = Modifier.fillMaxSize(), color = AppColors.mDarkPurple) {
         Column(modifier = Modifier
@@ -70,10 +72,7 @@ fun FinishScreen(navcontroller : NavHostController, sharedViewModel : SharedView
             Spacer(modifier = Modifier.height(20.dp))
 
             Row() {
-                Button(onClick = { Log.d("test", "correct questions is $correct and max is $totalQuestions")}, modifier = Modifier.padding(4.dp), colors = ButtonDefaults.buttonColors(containerColor = AppColors.mLightBlue)) {
-                    Text(text = "EXIT")
-                }
-                Button(onClick = { /*TODO*/ },modifier = Modifier.padding(4.dp), colors = ButtonDefaults.buttonColors(containerColor = AppColors.mLightBlue)) {
+                Button(onClick = { navcontroller.navigate(QuizScreens.Welcome.name) },modifier = Modifier.padding(4.dp), colors = ButtonDefaults.buttonColors(containerColor = AppColors.mLightBlue)) {
                     Text(text = "START NEW")
                 }
             }
@@ -85,7 +84,7 @@ fun FinishScreen(navcontroller : NavHostController, sharedViewModel : SharedView
     }
 }
 @Composable
-fun Results(score : Float = 0.8f, totalQuestions : Int){
+fun Results(score : Float, totalQuestions : Int){
     Card(modifier = Modifier
         .padding(10.dp)
         .fillMaxWidth(), border = BorderStroke(2.dp, color = AppColors.mLightGray), colors = CardDefaults.cardColors(
@@ -94,7 +93,7 @@ fun Results(score : Float = 0.8f, totalQuestions : Int){
                 .padding(4.dp)
                 .fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = "SCORE", textAlign = TextAlign.Center, color = AppColors.mOffWhite, fontSize = 20.sp, modifier = Modifier.padding(5.dp) )
-               CircularProgressBar(percentage = score, number = totalQuestions, color = AppColors.mLightBlue, modifier = Modifier.padding(40.dp))
+               CircularProgressBar(percentage = score, totalQestions = totalQuestions, color = AppColors.mLightBlue, modifier = Modifier.padding(40.dp))
 
             }
     }
@@ -102,13 +101,13 @@ fun Results(score : Float = 0.8f, totalQuestions : Int){
 
 @Composable
 fun CircularProgressBar(percentage :Float,
-                        number : Int,
+                        totalQestions : Int,
                         modifier: Modifier = Modifier,
                         fontSize: TextUnit = 28.sp,
                         radius: Dp = 50.dp,
-                        color: Color ,
+                        color: Color,
                         strokeWidth: Dp = 8.dp,
-                        animDuration: Int = 10000,
+                        animDuration: Int = 1000,
                         animDelay : Int = 0
 
 ){
@@ -143,12 +142,22 @@ fun CircularProgressBar(percentage :Float,
                 style = Stroke(strokeWidth.toPx(), cap = StrokeCap.Round)
             )
         }
-       Text(
-           text = (curPercentage.value * number).toInt().toString(),
-           color = color,
-           fontSize = fontSize,
-           fontWeight = FontWeight.Bold
-       )
+
+        Text(text = buildAnnotatedString { withStyle(style = ParagraphStyle(textIndent = TextIndent.None)) {
+            withStyle(style = SpanStyle(color = AppColors.mLightGray,
+                fontWeight = FontWeight.Bold,
+                fontSize = 27.sp)
+            ){
+                append("${String.format("%.0f", (curPercentage.value * totalQestions))}/")
+                withStyle(style = SpanStyle(color = AppColors.mLightGray,
+                    fontWeight = FontWeight.Light,
+                    fontSize = 14.sp
+                )
+                ){
+                    append("$totalQestions")
+                }
+            }
+        } })
    }
 
 

@@ -1,6 +1,7 @@
 package eu.oraimo.jettrivia.components
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -50,19 +54,26 @@ import eu.oraimo.jettrivia.screns.QuestionViewmodel
 import eu.oraimo.jettrivia.screns.viewModels.SharedViewModel
 import eu.oraimo.jettrivia.util.AppColors
 import java.lang.Exception
-import java.util.Random;
+import java.util.Random
 
 @Composable
 fun Questions( viewmodel: QuestionViewmodel, sharedViewModel: SharedViewModel, navController : NavHostController){
+    /** this variable represents the user setting from the welcome for the quiz */
     val settings : QuizSettings = sharedViewModel.Quizsetting
+    /** this variable represents the data from the API */
     val questions = viewmodel.data.value.data?.toMutableList()
+    /** this variable represents the start value of the quiz its random if the user selected the random option in the welcome screen and zero if the user dosen't  */
     val startValue : Int = setQuizValues(settings.randomize)
+    /** this variable represent the amount of Questions to be displayed based on the settings */
+    val numQuestions : Int = settings.numQuestions
 
-
+    /** this variable is a list of questions to be displayed based on the user selection in the welcome screen  */
     val setQuestions = questions?.subList(startValue,startValue + settings.numQuestions )
+    /** a mutable state to keep track off o fthe current index an increse in the index chnages the question being displayed */
     val questionIndex = remember {
         mutableStateOf(0)
     }
+    //checking if the data from the application is still running in the background
     if ( viewmodel.data.value.loading == true){
 
         CircularProgressIndicator()
@@ -74,20 +85,23 @@ fun Questions( viewmodel: QuestionViewmodel, sharedViewModel: SharedViewModel, n
             null
         }
        if (questions != null){
-           QuestionDisplay(Question = question!!, QuestionIndex = questionIndex, viewModel = viewmodel){ _,correct ->
-               if (questionIndex.value < settings.numQuestions - 1 ){
+           QuestionDisplay(Question = question!!, QuestionIndex = questionIndex, numQuestions = numQuestions){ next,correct ->
+               if (next){
+                   //move to the next question
                    questionIndex.value =  questionIndex.value +1
                }else {
+                   //move to the finish screen
                     sharedViewModel.setFinish(correct = correct, settings.numQuestions)
                     navController.navigate(QuizScreens.Finish.name)
                }
 
 
            }
-       }
-    }  
 
-    Log.d("SIZE", "Questions: ${questions?.size}")
+       }
+    }
+
+
 
 }
 fun setQuizValues(randomize : Boolean) : Int{
@@ -106,12 +120,14 @@ fun setQuizValues(randomize : Boolean) : Int{
 @Composable
 fun QuestionDisplay(Question : QuestionItem,
                     QuestionIndex: MutableState<Int>,
-                    viewModel : QuestionViewmodel,
-                    onclicked : (Int, Int) -> Unit ){
+                    numQuestions : Int,
+                    onclicked : (Boolean, Int) -> Unit ){
+    val context = LocalContext.current
 
     val choicesState = remember(Question){
         Question.choices.toMutableList()
     }
+    /** a state that updates to show the amount of Questions the user got right */
     val correctAnswerCount = remember {
         mutableStateOf(0)
     }
@@ -139,8 +155,8 @@ fun QuestionDisplay(Question : QuestionItem,
 
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.Start) {
-            if (QuestionIndex.value >= 3) ShowProgress(score = QuestionIndex.value)
-            QuestionTracker(counter = QuestionIndex.value, outof = viewModel.getTotalQuestionCount() )
+            if (QuestionIndex.value > 0) ShowProgress(score = QuestionIndex.value, numQuestions = numQuestions)
+            QuestionTracker(counter = QuestionIndex.value, outof = numQuestions )
             DrawDottedLine(pathEffect = pathEffect)
 
             Column() {
@@ -157,9 +173,8 @@ fun QuestionDisplay(Question : QuestionItem,
                 choicesState.forEachIndexed { index, answerText ->
                     Row(
                         modifier = Modifier
-                            .padding(3.dp)
+                            .padding(5.dp)
                             .fillMaxWidth()
-                            .height(45.dp)
                             .border(
                                 width = 4.dp, brush = Brush.linearGradient(
                                     colors = listOf(
@@ -178,7 +193,13 @@ fun QuestionDisplay(Question : QuestionItem,
                                 )
 
                             )
-                            .background(Color.Transparent)
+                            .background(
+                                if (index == answerState.value) {
+                                    Color.Green.copy(alpha = 0.2f)
+                                } else {
+                                    Color.Transparent
+                                }
+                            )
                             .clickable { updateAnswer(index) }, verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(selected = answerState.value == index,
@@ -187,11 +208,7 @@ fun QuestionDisplay(Question : QuestionItem,
                         colors = RadioButtonDefaults.colors(selectedColor = Color.Green)) // end rb
                         val anotatedString = buildAnnotatedString {
                             withStyle(style = SpanStyle(fontWeight = FontWeight.Light,
-                                                        color = if (index == answerState.value){
-                                                            Color.Green
-                                                        }else {
-                                                         AppColors.mOffWhite
-                                                        },
+                                                        color =  AppColors.mOffWhite ,
                                                         fontSize = 17.sp)){
                                 append(answerText)
                             }
@@ -200,11 +217,17 @@ fun QuestionDisplay(Question : QuestionItem,
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
                 Button(onClick = {
                                     if (correctAnswerState.value == true){
                                         correctAnswerCount.value++
                                     }
-                                    onclicked(QuestionIndex.value, correctAnswerCount.value)
+                                    if (answerState.value != null){
+                                        onclicked(QuestionIndex.value < numQuestions - 1, correctAnswerCount.value)
+                                    }else {
+                                        Toast.makeText(context, "make a valid selection", Toast.LENGTH_SHORT).show()
+                                    }
+
                                  }, modifier = Modifier
                     .padding(3.dp)
                     .align(alignment = Alignment.CenterHorizontally),
@@ -217,9 +240,24 @@ fun QuestionDisplay(Question : QuestionItem,
                     color = AppColors.mOffWhite,
                     fontSize = 17.sp)
                 }
+                Spacer(modifier = Modifier.height(40.dp))
+                Button(onClick = {
+                    onclicked(false, correctAnswerCount.value)
+                }, modifier = Modifier
+                    .padding(3.dp)
+                    .align(alignment = Alignment.CenterHorizontally),
+                    shape = RoundedCornerShape(3.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.mLightPurple
+                    )) {
+                    Text(text = "SUBMIT",
+                        modifier = Modifier.padding(4.dp),
+                        color = AppColors.mOffWhite,
+                        fontSize = 17.sp)
+                }
 
 
-                
+
             }
 
         }
@@ -260,10 +298,12 @@ fun QuestionTracker(counter: Int = 10, outof : Int){
 
 
 @Composable
-fun ShowProgress( score: Int  ){
+fun ShowProgress( score: Int , numQuestions: Int ){
     val gradient = Brush.linearGradient(listOf(Color(0xFFF95075), Color(0xFFBE6BE5)))
+    val fScore = score.toFloat()
+    val fNumQuestions = numQuestions.toFloat()
     val progressFactor = remember(score) {
-        mutableStateOf(score*0.005f)
+        mutableStateOf((fScore/fNumQuestions))
 
     }
     Row(modifier = Modifier
@@ -295,18 +335,18 @@ fun ShowProgress( score: Int  ){
             enabled = false,
             elevation = null,
             colors = buttonColors(containerColor = Color.Transparent, disabledContainerColor = Color.Transparent ) ) {
-            Text(
-                text = (score * 10).toString(),
-                modifier = Modifier
-                    .clip(shape = RoundedCornerShape(23.dp))
-                    .fillMaxHeight()
-                    .fillMaxWidth()
-                    .padding(6.dp)
-                    .align(Alignment.CenterVertically),
-                color = AppColors.mOffWhite,
-                textAlign = TextAlign.Center
-            )
-            
+           Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+               Text(
+                   text = ("${String.format("%.0f", (progressFactor.value * 100))} %").toString(),
+                   modifier = Modifier
+                       .clip(shape = RoundedCornerShape(23.dp))
+                       .padding(6.dp)
+                       ,
+                   color = AppColors.mOffWhite,
+                   textAlign = TextAlign.Center
+               )
+           }
+
         }
 
     }

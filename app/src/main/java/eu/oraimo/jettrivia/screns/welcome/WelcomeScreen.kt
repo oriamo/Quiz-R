@@ -1,5 +1,7 @@
 package eu.oraimo.jettrivia.screns.welcome
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.List
@@ -31,8 +34,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,7 +62,7 @@ fun WelcomeScreen (navController: NavController, sharedviewModel : SharedViewMod
             Text(text = "QUIZ-R", color = MaterialTheme.colorScheme.onBackground, fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif)
             Text(text = "4185 Questions Avaliable")
             Spacer(modifier = Modifier.height(50.dp))
-            QuizInitilizer(navController =navController, maxQuestion = 1000){numQuestions,randomize ->
+            QuizInitilizer(){numQuestions,randomize ->
                 sharedviewModel.setQuestions(numQuestions,randomize)
                 navController.navigate(QuizScreens.Quiz.name)
             }
@@ -75,9 +80,14 @@ fun WelcomeScreen (navController: NavController, sharedviewModel : SharedViewMod
     }
 }
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuizInitilizer(maxQuestion : Int = 0, navController: NavController, onClick : (numQuestion : Int, randomize : Boolean) -> Unit){
+fun QuizInitilizer(onClick : (numQuestion : Int, randomize : Boolean) -> Unit){
+
+    val context = LocalContext.current
+
     val questionState = remember(){
         mutableStateOf("")
     }
@@ -98,17 +108,23 @@ fun QuizInitilizer(maxQuestion : Int = 0, navController: NavController, onClick 
            }
            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                Text(text = "amount of questions", textAlign = TextAlign.Center)
+               var inputIsValid by remember(questionState.value) {
+                   mutableStateOf(questionState.value.trim().isNotEmpty())
+               }
                OutlinedTextField(value = questionState.value,
-                   onValueChange = {if (validateInputRange(it, maxQuestion, 0 )){
-                       questionState.value = it.trim()
-                   }else {
-
-                   }  },
+                   onValueChange = {questionState.value = it.trim() },
                    modifier = Modifier.padding(5.dp),
                    label = { Text(text = "Questions")},
-                   keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                   keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                   keyboardActions = KeyboardActions {
+                                                     if (!inputIsValid) return@KeyboardActions
+
+                   },
+                   enabled = true,
+                   singleLine = true
                )
            }
+
            Row(verticalAlignment = Alignment.CenterVertically, ) {
                RadioButton(selected = randomize, onClick = {
                    randomize = !randomize
@@ -116,9 +132,12 @@ fun QuizInitilizer(maxQuestion : Int = 0, navController: NavController, onClick 
                Text(text = "Randomize Questions")
            }
 
+
            Button(onClick = {
-               if (questionState.value.isNotEmpty()){
+               if (questionState.value.isNotEmpty() && questionState.value.toInt() > 0 && questionState.value.toInt() < 4184 ){
                    onClick(questionState.value.toInt(),randomize)
+               } else {
+                   Toast.makeText(context, "invalid input", Toast.LENGTH_SHORT).show()
                }
                             } ) {
                Text(text = "Start")
@@ -130,10 +149,3 @@ fun QuizInitilizer(maxQuestion : Int = 0, navController: NavController, onClick 
     }
 }
 
-fun validateInputRange(input : String, max : Int, min : Int) : Boolean{
-    val dgtInput = input.toInt()
-    if (dgtInput in (min)..max){
-        return true
-    }
-    return false
-}
